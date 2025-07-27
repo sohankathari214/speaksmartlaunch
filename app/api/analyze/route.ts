@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     // Run Python analysis script
     const result = await new Promise((resolve, reject) => {
-      const pythonProcess = spawn("python", [
+      const pythonProcess = spawn("python3", [
         path.join(process.cwd(), "python", "analyze_video.py"),
         filePath,
         notes || "",

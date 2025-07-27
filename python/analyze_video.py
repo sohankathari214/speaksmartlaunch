@@ -5,13 +5,19 @@ import sys
 import json
 import time
 
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # loads variables from .env into the environment
+
+api_key = os.getenv("OPENAI_API_KEY")
+
 def analyze_video(video_path, context_notes=""):
     try:
         # Start timer
         start_time = time.time()
 
-        client = openai.OpenAI(api_key="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")  # <-- REPLACE THIS
-
+        client = openai.OpenAI(api_key=api_key)
         # 1. Extract audio from video
         audio_path = "temp/audio.wav"
         video = VideoFileClip(video_path)

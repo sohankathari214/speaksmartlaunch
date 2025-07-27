@@ -1,6 +1,6 @@
-import Header from "@/components/header"
-import Footer from "@/components/footer"
-import AnalyzeInterface from "@/components/analyze-interface"
+import Header from "@/components/header";
+import Footer from "@/components/footer";
+import AnalyzeInterface from "@/components/analyze-interface";
 
 export default function AnalyzePage() {
   return (
@@ -11,5 +11,5 @@ export default function AnalyzePage() {
       </main>
       <Footer />
     </div>
-  )
+  );
 }

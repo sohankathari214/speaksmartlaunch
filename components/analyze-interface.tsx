@@ -1,12 +1,12 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useRef } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { Progress } from "@/components/ui/progress"
+import { useState, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import {
   Upload,
   Play,
@@ -15,149 +15,153 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
-  Download,
-  Share2,
   TrendingUp,
   Clock,
   MessageSquare,
-} from "lucide-react"
+} from "lucide-react";
 
 interface AnalysisResult {
-  overall_score: number
-  confidence_score: number
-  strengths: string[]
-  improvements: string[]
+  overall_score: number;
+  confidence_score: number;
+  strengths: string[];
+  improvements: string[];
   detailed_metrics: {
-    speech_clarity: number
-    vocal_variety: number
-    body_language: number
-    eye_contact: number
-    pacing: number
-    filler_words: number
-  }
-  recommendations: string
-  transcript?: string
-  analysis_duration: string
+    speech_clarity: number;
+    vocal_variety: number;
+    body_language: number;
+    eye_contact: number;
+    pacing: number;
+    filler_words: number;
+  };
+  recommendations: string;
+  transcript?: string;
+  analysis_duration: string;
 }
 
 export default function AnalyzeInterface() {
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [notes, setNotes] = useState("")
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [progress, setProgress] = useState(0)
-  const [dragActive, setDragActive] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [notes, setNotes] = useState("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
+  const [error, setError] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault();
+    e.stopPropagation();
     if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true)
+      setDragActive(true);
     } else if (e.type === "dragleave") {
-      setDragActive(false)
+      setDragActive(false);
     }
-  }
+  };
 
   const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0]
+      const file = e.dataTransfer.files[0];
       if (file.type.startsWith("video/")) {
-        setUploadedFile(file)
-        setError(null)
+        setUploadedFile(file);
+        setError(null);
       } else {
-        setError("Please upload a video file")
+        setError("Please upload a video file");
       }
     }
-  }
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0]
+      const file = e.target.files[0];
       if (file.type.startsWith("video/")) {
-        setUploadedFile(file)
-        setError(null)
+        setUploadedFile(file);
+        setError(null);
       } else {
-        setError("Please upload a video file")
+        setError("Please upload a video file");
       }
     }
-  }
+  };
 
   const handleAnalyze = async () => {
-    if (!uploadedFile) return
+    if (!uploadedFile) return;
 
-    setIsAnalyzing(true)
-    setProgress(0)
-    setError(null)
-    setAnalysisResult(null)
+    setIsAnalyzing(true);
+    setProgress(0);
+    setError(null);
+    setAnalysisResult(null);
 
     try {
-      const formData = new FormData()
-      formData.append("video", uploadedFile)
-      formData.append("notes", notes)
+      const formData = new FormData();
+      formData.append("video", uploadedFile);
+      formData.append("notes", notes);
 
       // Simulate progress updates
       const progressInterval = setInterval(() => {
         setProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(progressInterval)
-            return 90
+            clearInterval(progressInterval);
+            return 90;
           }
-          return prev + Math.random() * 10
-        })
-      }, 1000)
+          return prev + Math.random() * 10;
+        });
+      }, 1000);
 
       const response = await fetch("/api/analyze", {
         method: "POST",
         body: formData,
-      })
+      });
 
-      clearInterval(progressInterval)
-      setProgress(100)
+      clearInterval(progressInterval);
+      setProgress(100);
 
       if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Analysis failed")
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Analysis failed");
       }
 
-      const data = await response.json()
+      const data = await response.json();
 
       if (data.success) {
-        setAnalysisResult(data.analysis)
+        setAnalysisResult(data.analysis);
       } else {
-        throw new Error(data.error || "Analysis failed")
+        throw new Error(data.error || "Analysis failed");
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred during analysis")
+      setError(
+        err instanceof Error ? err.message : "An error occurred during analysis"
+      );
     } finally {
-      setIsAnalyzing(false)
+      setIsAnalyzing(false);
     }
-  }
+  };
 
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return "0 Bytes"
-    const k = 1024
-    const sizes = ["Bytes", "KB", "MB", "GB"]
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
-  }
+    if (bytes === 0) return "0 Bytes";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return (
+      Number.parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i]
+    );
+  };
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return "text-green-400"
-    if (score >= 6) return "text-yellow-400"
-    return "text-red-400"
-  }
+    if (score >= 8) return "text-green-400";
+    if (score >= 6) return "text-yellow-400";
+    return "text-red-400";
+  };
 
   const getScoreGradient = (score: number) => {
-    if (score >= 8) return "from-green-400 to-emerald-400"
-    if (score >= 6) return "from-yellow-400 to-orange-400"
-    return "from-red-400 to-pink-400"
-  }
+    if (score >= 8) return "from-green-400 to-emerald-400";
+    if (score >= 6) return "from-yellow-400 to-orange-400";
+    return "from-red-400 to-pink-400";
+  };
 
   return (
     <div className="pt-20">
@@ -167,7 +171,8 @@ export default function AnalyzeInterface() {
             AI Speech Analyzer
           </h1>
           <p className="text-xl text-slate-400 max-w-3xl mx-auto">
-            Upload your presentation video and get detailed AI-powered feedback on your speaking performance.
+            Upload your presentation video and get detailed AI-powered feedback
+            on your speaking performance.
           </p>
         </div>
 
@@ -175,9 +180,12 @@ export default function AnalyzeInterface() {
           {/* Upload Section */}
           <div className="space-y-8">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-4">Upload Your Presentation</h2>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Upload Your Presentation
+              </h2>
               <p className="text-slate-400 text-lg">
-                Upload your video and add any specific notes for our AI to analyze your speaking performance.
+                Upload your video and add any specific notes for our AI to
+                analyze your speaking performance.
               </p>
             </div>
 
@@ -195,8 +203,8 @@ export default function AnalyzeInterface() {
                     dragActive
                       ? "border-blue-500 bg-blue-500/10"
                       : uploadedFile
-                        ? "border-green-500 bg-green-500/10"
-                        : "border-slate-700 hover:border-slate-600"
+                      ? "border-green-500 bg-green-500/10"
+                      : "border-slate-700 hover:border-slate-600"
                   }`}
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
@@ -207,8 +215,12 @@ export default function AnalyzeInterface() {
                     <div className="space-y-4">
                       <CheckCircle className="w-12 h-12 text-green-500 mx-auto" />
                       <div>
-                        <p className="text-white font-medium">{uploadedFile.name}</p>
-                        <p className="text-slate-400 text-sm">{formatFileSize(uploadedFile.size)}</p>
+                        <p className="text-white font-medium">
+                          {uploadedFile.name}
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          {formatFileSize(uploadedFile.size)}
+                        </p>
                       </div>
                       <Button
                         variant="outline"
@@ -222,8 +234,12 @@ export default function AnalyzeInterface() {
                     <div className="space-y-4">
                       <Upload className="w-12 h-12 text-slate-500 mx-auto" />
                       <div>
-                        <p className="text-white font-medium mb-2">Drop your video here, or click to browse</p>
-                        <p className="text-slate-400 text-sm">Supports MP4, MOV, AVI up to 500MB</p>
+                        <p className="text-white font-medium mb-2">
+                          Drop your video here, or click to browse
+                        </p>
+                        <p className="text-slate-400 text-sm">
+                          Supports MP4, MOV, AVI up to 500MB
+                        </p>
                       </div>
                       <Button
                         onClick={() => fileInputRef.current?.click()}
@@ -234,7 +250,13 @@ export default function AnalyzeInterface() {
                     </div>
                   )}
                 </div>
-                <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileSelect} className="hidden" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="video/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
               </CardContent>
             </Card>
 
@@ -254,7 +276,9 @@ export default function AnalyzeInterface() {
                   maxLength={500}
                   className="min-h-32 bg-slate-800/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-blue-500 resize-none"
                 />
-                <p className="text-slate-500 text-sm mt-2">{notes.length}/500 characters</p>
+                <p className="text-slate-500 text-sm mt-2">
+                  {notes.length}/500 characters
+                </p>
               </CardContent>
             </Card>
 
@@ -293,8 +317,12 @@ export default function AnalyzeInterface() {
           {/* Results Section */}
           <div className="space-y-8">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-4">Analysis Results</h2>
-              <p className="text-slate-400 text-lg">Your AI-powered presentation analysis will appear here.</p>
+              <h2 className="text-3xl font-bold text-white mb-4">
+                Analysis Results
+              </h2>
+              <p className="text-slate-400 text-lg">
+                Your AI-powered presentation analysis will appear here.
+              </p>
             </div>
 
             {isAnalyzing && (
@@ -305,14 +333,19 @@ export default function AnalyzeInterface() {
                       <Brain className="w-8 h-8 text-white animate-pulse" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold text-white mb-2">Analyzing Your Presentation</h3>
+                      <h3 className="text-xl font-semibold text-white mb-2">
+                        Analyzing Your Presentation
+                      </h3>
                       <p className="text-slate-400">
-                        Our AI is processing your video and analyzing your performance...
+                        Our AI is processing your video and analyzing your
+                        performance...
                       </p>
                     </div>
                     <div className="space-y-2">
                       <Progress value={progress} className="w-full" />
-                      <p className="text-sm text-slate-500">{Math.round(progress)}% Complete</p>
+                      <p className="text-sm text-slate-500">
+                        {Math.round(progress)}% Complete
+                      </p>
                     </div>
                   </div>
                 </CardContent>
@@ -324,34 +357,17 @@ export default function AnalyzeInterface() {
                 {/* Overall Score */}
                 <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
                   <CardHeader>
-                    <CardTitle className="text-white flex items-center justify-between">
-                      <div className="flex items-center">
-                        <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
-                        Overall Performance Score
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-slate-700 text-slate-300 hover:text-white bg-transparent"
-                        >
-                          <Share2 className="w-4 h-4 mr-2" />
-                          Share
-                        </Button>
-                        <Button
-                          size="sm"
-                          className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700"
-                        >
-                          <Download className="w-4 h-4 mr-2" />
-                          Export
-                        </Button>
-                      </div>
+                    <CardTitle className="text-white flex items-center">
+                      <TrendingUp className="w-5 h-5 mr-2 text-green-400" />
+                      Overall Performance Score
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="text-center space-y-4">
                       <div
-                        className={`text-4xl font-bold bg-gradient-to-r ${getScoreGradient(analysisResult.overall_score)} bg-clip-text text-transparent`}
+                        className={`text-4xl font-bold bg-gradient-to-r ${getScoreGradient(
+                          analysisResult.overall_score
+                        )} bg-clip-text text-transparent`}
                       >
                         {analysisResult.overall_score}/10
                       </div>
@@ -372,29 +388,45 @@ export default function AnalyzeInterface() {
                 {/* Detailed Metrics */}
                 <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
                   <CardHeader>
-                    <CardTitle className="text-white">Detailed Metrics</CardTitle>
+                    <CardTitle className="text-white">
+                      Detailed Metrics
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {Object.entries(analysisResult.detailed_metrics).map(([key, value]) => (
-                      <div key={key} className="space-y-2">
-                        <div className="flex justify-between items-center">
-                          <span className="text-slate-300 capitalize">{key.replace("_", " ")}</span>
-                          <span className={`font-semibold ${getScoreColor(value)}`}>{value}/10</span>
+                    {Object.entries(analysisResult.detailed_metrics).map(
+                      ([key, value]) => (
+                        <div key={key} className="space-y-2">
+                          <div className="flex justify-between items-center">
+                            <span className="text-slate-300 capitalize">
+                              {key.replace("_", " ")}
+                            </span>
+                            <span
+                              className={`font-semibold ${getScoreColor(
+                                value
+                              )}`}
+                            >
+                              {value}/10
+                            </span>
+                          </div>
+                          <Progress value={value * 10} className="h-2" />
                         </div>
-                        <Progress value={value * 10} className="h-2" />
-                      </div>
-                    ))}
+                      )
+                    )}
                   </CardContent>
                 </Card>
 
                 {/* Analysis Details */}
                 <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
                   <CardHeader>
-                    <CardTitle className="text-white">Detailed Analysis</CardTitle>
+                    <CardTitle className="text-white">
+                      Detailed Analysis
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-3">Strengths</h4>
+                      <h4 className="text-lg font-semibold text-white mb-3">
+                        Strengths
+                      </h4>
                       <ul className="space-y-2 text-slate-300">
                         {analysisResult.strengths.map((strength, index) => (
                           <li key={index} className="flex items-start">
@@ -406,21 +438,29 @@ export default function AnalyzeInterface() {
                     </div>
 
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-3">Areas for Improvement</h4>
+                      <h4 className="text-lg font-semibold text-white mb-3">
+                        Areas for Improvement
+                      </h4>
                       <ul className="space-y-2 text-slate-300">
-                        {analysisResult.improvements.map((improvement, index) => (
-                          <li key={index} className="flex items-start">
-                            <AlertCircle className="w-5 h-5 text-yellow-400 mr-2 mt-0.5 flex-shrink-0" />
-                            {improvement}
-                          </li>
-                        ))}
+                        {analysisResult.improvements.map(
+                          (improvement, index) => (
+                            <li key={index} className="flex items-start">
+                              <AlertCircle className="w-5 h-5 text-yellow-400 mr-2 mt-0.5 flex-shrink-0" />
+                              {improvement}
+                            </li>
+                          )
+                        )}
                       </ul>
                     </div>
 
                     <div>
-                      <h4 className="text-lg font-semibold text-white mb-3">Recommendations</h4>
+                      <h4 className="text-lg font-semibold text-white mb-3">
+                        Recommendations
+                      </h4>
                       <div className="bg-slate-800/50 rounded-lg p-4">
-                        <p className="text-slate-300 leading-relaxed">{analysisResult.recommendations}</p>
+                        <p className="text-slate-300 leading-relaxed">
+                          {analysisResult.recommendations}
+                        </p>
                       </div>
                     </div>
 
@@ -431,7 +471,9 @@ export default function AnalyzeInterface() {
                           Transcript
                         </h4>
                         <div className="bg-slate-800/50 rounded-lg p-4 max-h-40 overflow-y-auto">
-                          <p className="text-slate-300 text-sm leading-relaxed">{analysisResult.transcript}</p>
+                          <p className="text-slate-300 text-sm leading-relaxed">
+                            {analysisResult.transcript}
+                          </p>
                         </div>
                       </div>
                     )}
@@ -444,9 +486,12 @@ export default function AnalyzeInterface() {
               <Card className="bg-slate-900/50 border-slate-800/50 backdrop-blur-sm">
                 <CardContent className="p-12 text-center">
                   <Brain className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-400 mb-2">Ready to Analyze</h3>
+                  <h3 className="text-xl font-semibold text-slate-400 mb-2">
+                    Ready to Analyze
+                  </h3>
                   <p className="text-slate-500">
-                    Upload a video and click "Start Analysis" to get your AI-powered feedback
+                    Upload a video and click "Start Analysis" to get your
+                    AI-powered feedback
                   </p>
                 </CardContent>
               </Card>
@@ -455,5 +500,5 @@ export default function AnalyzeInterface() {
         </div>
       </div>
     </div>
-  )
+  );
 }

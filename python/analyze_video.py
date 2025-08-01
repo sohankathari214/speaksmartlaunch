@@ -12,17 +12,21 @@ load_dotenv()  # loads variables from .env into the environment
 
 api_key = os.getenv("OPENAI_API_KEY")
 
-def analyze_video(video_path, context_notes=""):
+def analyze_video(video_path, audio_path, context_notes=""):
     try:
         # Start timer
         start_time = time.time()
 
         client = openai.OpenAI(api_key=api_key)
+        
         # 1. Extract audio from video
-        audio_path = "temp/audio.wav"
         video = VideoFileClip(video_path)
         video.audio.write_audiofile(audio_path, codec='pcm_s16le', logger=None)
-
+        
+        # Properly close and cleanup video resources
+        video.close()
+        del video  # Explicitly delete the video object
+        
         # 2. Transcribe audio with Whisper
         with open(audio_path, "rb") as audio_file:
             transcription = client.audio.transcriptions.create(
@@ -102,18 +106,19 @@ User notes for context (if any):
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(json.dumps({"error": "Video path is required"}))
+    if len(sys.argv) < 3:
+        print(json.dumps({"error": "Video path and audio path are required"}))
         sys.exit(1)
 
     video_path = sys.argv[1]
-    context_notes = sys.argv[2] if len(sys.argv) > 2 else ""
+    audio_path = sys.argv[2]
+    context_notes = sys.argv[3] if len(sys.argv) > 3 else ""
 
     if not os.path.exists(video_path):
         print(json.dumps({"error": "Video file not found"}))
         sys.exit(1)
 
-    result = analyze_video(video_path, context_notes)
+    result = analyze_video(video_path, audio_path, context_notes)
 
     print(json.dumps(result, ensure_ascii=False))
 

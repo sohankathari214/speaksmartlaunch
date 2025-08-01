@@ -34,8 +34,11 @@ def analyze_video(video_path, context_notes=""):
         # 3. Prepare prompt for analysis
         prompt = f"""
 You are an expert public speaking coach and evaluator. You will analyze a speaker's transcript and return a JSON object with structured feedback.
-
-Please return your output in the following exact JSON format (with real values filled in):
+You need to give specific advice that is targeted towards the specific speech the user gave. Do not be vauge. For example, if the user needs to improve a transition, clearly state what two points the transition is between and what specifically needs to be changed about it. 
+When telling strengths, weaknesses, and feedback, mention SPECIFIC things the speech talked about and reference them. Do not be vague. Be as specific to the transcript as possible. 
+Do not be afraid to give a low score, the goal of your task is to be as critical as possible. A low score is not mean, it just signals improvement. Only give out high scores (7+) if you truly believe the speech deserves it based on the metrics mentioned below.
+If you do not mention something specific to the speech that couldn't apply to any speech, you did the job wrong. Please be specific.
+Please return your output in the following exact JSON format (with real values filled in)::
 
 {{
   "overall_score": float (from 1.0 to 10.0),

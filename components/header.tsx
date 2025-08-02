@@ -1,26 +1,28 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Menu, X } from "lucide-react";
 
 export default function Header() {
-  const [isScrolled, setIsScrolled] = useState(false)
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
-      setIsScrolled(window.scrollY > 50)
-    }
-    window.addEventListener("scroll", handleScroll)
-    return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
+      setIsScrolled(window.scrollY > 50);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   return (
     <header
       className={`fixed top-0 w-full z-50 transition-all duration-300 ${
-        isScrolled ? "bg-slate-950/95 backdrop-blur-md border-b border-slate-800/50" : "bg-transparent"
+        isScrolled
+          ? "bg-slate-950/95 backdrop-blur-md border-b border-slate-800/50"
+          : "bg-transparent"
       }`}
     >
       <div className="container mx-auto px-6 py-4">
@@ -37,6 +39,7 @@ export default function Header() {
               { name: "Home", href: "/" },
               { name: "Meet the Team", href: "/about" },
               { name: "Analyze", href: "/analyze" },
+              { name: "Coming Soon", href: "/coming-soon" },
             ].map((item) => (
               <Link
                 key={item.name}
@@ -56,7 +59,10 @@ export default function Header() {
               </Button>
             </Link>
 
-            <button className="md:hidden text-white" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+            <button
+              className="md:hidden text-white"
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            >
               {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
           </div>
@@ -66,16 +72,26 @@ export default function Header() {
         {isMobileMenuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t border-slate-800">
             <nav className="flex flex-col space-y-4 mt-4">
-              {["Home", "Meet the Team", "Analyze"].map((item) => (
-                <Link
-                  key={item}
-                  href={item === "Home" ? "/" : item === "Meet the Team" ? "/about" : "/analyze"}
-                  className="text-slate-400 hover:text-white transition-colors"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  {item}
-                </Link>
-              ))}
+              {["Home", "Meet the Team", "Analyze", "Coming Soon"].map(
+                (item) => (
+                  <Link
+                    key={item}
+                    href={
+                      item === "Home"
+                        ? "/"
+                        : item === "Meet the Team"
+                        ? "/about"
+                        : item === "Analyze"
+                        ? "/analyze"
+                        : "/coming-soon"
+                    }
+                    className="text-slate-400 hover:text-white transition-colors"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    {item}
+                  </Link>
+                )
+              )}
               <Link href="/analyze">
                 <Button className="bg-gradient-to-r from-blue-600 to-blue-700 text-white w-full mt-4">
                   Analyze for Free
@@ -86,5 +102,5 @@ export default function Header() {
         )}
       </div>
     </header>
-  )
+  );
 }

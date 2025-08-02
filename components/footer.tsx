@@ -18,10 +18,10 @@ export default function Footer() {
             <div className="flex items-center space-x-2 text-slate-400 hover:text-white transition-colors">
               <Mail className="w-4 h-4 text-blue-400" />
               <a
-                href="mailto:speaksmart@speaksmart.live"
+                href="mailto:support@speaksmart.live"
                 className="hover:text-blue-400 transition-colors"
               >
-                speaksmart@speaksmart.live
+                support@speaksmart.live
               </a>
             </div>
           </div>

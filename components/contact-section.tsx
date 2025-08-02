@@ -80,10 +80,10 @@ export default function ContactSection() {
                 <div className="flex items-center justify-center space-x-3 text-slate-300">
                   <Mail className="w-5 h-5 text-blue-400" />
                   <a
-                    href="mailto:speaksmart@speaksmart.live"
+                    href="mailto:support@speaksmart.live"
                     className="hover:text-white transition-colors"
                   >
-                    speaksmart@speaksmart.live
+                    support@speaksmart.live
                   </a>
                 </div>
                 <div className="flex items-center justify-center space-x-3 text-slate-300">

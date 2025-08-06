@@ -48,6 +48,7 @@ export default function AnalyzeInterface() {
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
+  const [currentStep, setCurrentStep] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDrag = (e: React.DragEvent) => {
@@ -67,11 +68,11 @@ export default function AnalyzeInterface() {
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.type.startsWith("video/")) {
+      if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
         setUploadedFile(file);
         setError(null);
       } else {
-        setError("Please upload a video file");
+        setError("Please upload a video or audio file");
       }
     }
   };
@@ -79,11 +80,11 @@ export default function AnalyzeInterface() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      if (file.type.startsWith("video/")) {
+      if (file.type.startsWith("video/") || file.type.startsWith("audio/")) {
         setUploadedFile(file);
         setError(null);
       } else {
-        setError("Please upload a video file");
+        setError("Please upload a video or audio file");
       }
     }
   };
@@ -95,49 +96,57 @@ export default function AnalyzeInterface() {
     setProgress(0);
     setError(null);
     setAnalysisResult(null);
+    setCurrentStep("Preparing file for streaming...");
 
     try {
       const formData = new FormData();
       formData.append("video", uploadedFile);
-      formData.append("notes", notes);
+      formData.append("contextNotes", notes);
 
-      // Simulate progress updates
-      const progressInterval = setInterval(() => {
-        setProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + Math.random() * 10;
-        });
-      }, 1000);
+      // Update progress as we stream
+      setCurrentStep("Streaming video and extracting audio...");
+      setProgress(25);
 
       const response = await fetch("/api/analyze", {
         method: "POST",
         body: formData,
       });
 
-      clearInterval(progressInterval);
-      setProgress(100);
+      setProgress(50);
+      setCurrentStep("Audio extracted, analyzing speech...");
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Analysis failed");
       }
 
+      setProgress(75);
+      setCurrentStep("Generating detailed feedback...");
+
       const data = await response.json();
 
-      if (data.success) {
-        setAnalysisResult(data.analysis);
-      } else {
-        throw new Error(data.error || "Analysis failed");
+      if (data.error) {
+        throw new Error(data.error);
       }
+
+      setProgress(100);
+      setCurrentStep("Analysis complete!");
+
+      // Add artificial delay to show completion
+      setTimeout(() => {
+        setAnalysisResult(data);
+        setCurrentStep("");
+      }, 500);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An error occurred during analysis"
       );
+      setCurrentStep("");
     } finally {
-      setIsAnalyzing(false);
+      setTimeout(() => {
+        setIsAnalyzing(false);
+        setProgress(0);
+      }, 1000);
     }
   };
 
@@ -174,6 +183,10 @@ export default function AnalyzeInterface() {
             Upload your presentation video and get detailed AI-powered feedback
             on your speaking performance.
           </p>
+          <div className="mt-4 text-sm text-green-400 bg-green-900/20 border border-green-700/50 rounded-lg p-3 max-w-2xl mx-auto">
+            <strong>Memory Optimized:</strong> Videos are streamed directly to
+            our analysis engine without storing large files in memory.
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12">
@@ -184,8 +197,8 @@ export default function AnalyzeInterface() {
                 Upload Your Presentation
               </h2>
               <p className="text-slate-400 text-lg">
-                Upload your video and add any specific notes for our AI to
-                analyze your speaking performance.
+                Upload your video or audio file. Large files are streamed
+                efficiently to minimize memory usage.
               </p>
             </div>
 
@@ -194,7 +207,7 @@ export default function AnalyzeInterface() {
               <CardHeader>
                 <CardTitle className="text-white flex items-center">
                   <FileVideo className="w-5 h-5 mr-2 text-blue-400" />
-                  Video Upload
+                  Video/Audio Upload
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -221,6 +234,9 @@ export default function AnalyzeInterface() {
                         <p className="text-slate-400 text-sm">
                           {formatFileSize(uploadedFile.size)}
                         </p>
+                        <p className="text-green-400 text-xs mt-1">
+                          Ready for streaming analysis
+                        </p>
                       </div>
                       <Button
                         variant="outline"
@@ -235,10 +251,10 @@ export default function AnalyzeInterface() {
                       <Upload className="w-12 h-12 text-slate-500 mx-auto" />
                       <div>
                         <p className="text-white font-medium mb-2">
-                          Drop your video here, or click to browse
+                          Drop your video/audio here, or click to browse
                         </p>
                         <p className="text-slate-400 text-sm">
-                          Supports MP4, MOV, AVI up to 500MB
+                          Supports MP4, MOV, AVI, MP3, WAV • No file size limits
                         </p>
                       </div>
                       <Button
@@ -253,7 +269,7 @@ export default function AnalyzeInterface() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="video/*"
+                  accept="video/*,audio/*"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -303,12 +319,12 @@ export default function AnalyzeInterface() {
               {isAnalyzing ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                  Analyzing Video...
+                  Streaming & Analyzing...
                 </>
               ) : (
                 <>
                   <Play className="w-5 h-5 mr-2" />
-                  Start Analysis
+                  Start Streaming Analysis
                 </>
               )}
             </Button>
@@ -334,12 +350,9 @@ export default function AnalyzeInterface() {
                     </div>
                     <div>
                       <h3 className="text-xl font-semibold text-white mb-2">
-                        Analyzing Your Presentation
+                        Processing Your Presentation
                       </h3>
-                      <p className="text-slate-400">
-                        Our AI is processing your video and analyzing your
-                        performance...
-                      </p>
+                      <p className="text-slate-400">{currentStep}</p>
                     </div>
                     <div className="space-y-2">
                       <Progress value={progress} className="w-full" />
@@ -378,7 +391,7 @@ export default function AnalyzeInterface() {
                         </div>
                         <div className="flex items-center">
                           <Brain className="w-4 h-4 mr-1" />
-                          {analysisResult.confidence_score}% confidence
+                          Streamed Analysis
                         </div>
                       </div>
                     </div>
@@ -490,8 +503,8 @@ export default function AnalyzeInterface() {
                     Ready to Analyze
                   </h3>
                   <p className="text-slate-500">
-                    Upload a video and click "Start Analysis" to get your
-                    AI-powered feedback
+                    Upload a video and we'll stream it directly for
+                    memory-efficient AI analysis
                   </p>
                 </CardContent>
               </Card>

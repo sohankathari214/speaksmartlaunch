@@ -1,108 +1,115 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { writeFile, mkdir, unlink } from "fs/promises"
-import { existsSync } from "fs"
-import path from "path"
-import { spawn } from "child_process"
+import { type NextRequest, NextResponse } from "next/server";
+import { spawn } from "child_process";
+import path from "path";
 
 export async function POST(request: NextRequest) {
-  let videoFilePath: string | null = null
-  let audioFilePath: string | null = null
-
   try {
-    const formData = await request.formData()
-    const file = formData.get("video") as File
-    const notes = formData.get("notes") as string
+    const data = await request.formData();
+    const file: File | null = data.get("video") as unknown as File;
+    const contextNotes = (data.get("contextNotes") as string) || "";
 
     if (!file) {
-      return NextResponse.json({ error: "No video file provided" }, { status: 400 })
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
     }
 
-    // Create temp directory if it doesn't exist
-    const tempDir = path.join(process.cwd(), "temp")
-    if (!existsSync(tempDir)) {
-      await mkdir(tempDir, { recursive: true })
-    }
+    // 🧠 Buffer the video file instead of streaming it
+    const arrayBuffer = await file.arrayBuffer();
+    const videoBuffer = Buffer.from(arrayBuffer);
 
-    // Save uploaded file
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    videoFilePath = path.join(tempDir, `upload_${Date.now()}_${file.name}`)
-    await writeFile(videoFilePath, buffer)
-
-    // Set audio file path
-    audioFilePath = path.join(tempDir, `audio_${Date.now()}.wav`)
-
-    // Run Python analysis script with both file paths
+    // 🧪 Send the buffer to FFmpeg for audio extraction
     const result = await new Promise((resolve, reject) => {
-      const pythonProcess = spawn("python", [
-        path.join(process.cwd(), "python", "analyze_video.py"),
-        videoFilePath!,
-        audioFilePath!,
-        notes || "",
-      ])
+      const ffmpegProcess = spawn("ffmpeg", [
+        "-i", "pipe:0", // Read from stdin
+        "-vn",          // No video output
+        "-acodec", "pcm_s16le", // Audio codec
+        "-ar", "16000", // Sample rate
+        "-ac", "1",     // Mono
+        "-f", "wav",    // Output format
+        "pipe:1"        // Write to stdout
+      ]);
 
-      let output = ""
-      let error = ""
+      let audioBuffer = Buffer.alloc(0);
+      let errorOutput = "";
 
-      pythonProcess.stdout.on("data", (data) => {
-        output += data.toString()
-      })
+      // Pipe video buffer to stdin
+      ffmpegProcess.stdin!.write(videoBuffer);
+      ffmpegProcess.stdin!.end();
 
-      pythonProcess.stderr.on("data", (data) => {
-        error += data.toString()
-      })
+      // Capture audio output
+      ffmpegProcess.stdout!.on("data", (chunk) => {
+        audioBuffer = Buffer.concat([audioBuffer, chunk]);
+      });
 
-      pythonProcess.on("close", (code) => {
+      ffmpegProcess.stderr!.on("data", (data) => {
+        errorOutput += data.toString();
+      });
+
+      ffmpegProcess.on("close", async (code) => {
         if (code !== 0) {
-          reject(new Error(`Python script failed: ${error}`))
-        } else {
-          try {
-            const analysis = JSON.parse(output)
-            resolve(analysis)
-          } catch (parseError) {
-            reject(new Error(`Failed to parse analysis result: ${parseError}`))
-          }
+          reject(new Error(`FFmpeg failed: ${errorOutput}`));
+          return;
         }
-      })
-    })
 
-    return NextResponse.json({
-      success: true,
-      analysis: result,
-    })
+        try {
+          const pythonResult = await analyzeAudioWithPython(audioBuffer, contextNotes);
+          resolve(pythonResult);
+        } catch (err) {
+          reject(err);
+        }
+      });
+
+      ffmpegProcess.on("error", (error) => {
+        reject(new Error(`FFmpeg process error: ${error.message}`));
+      });
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error("Analysis error:", error)
-    return NextResponse.json({ error: error instanceof Error ? error.message : "Analysis failed" }, { status: 500 })
-  } finally {
-    // Clean up files regardless of success or failure
-    // Add a small delay to ensure Python script has finished with files
-    await new Promise((resolve) => setTimeout(resolve, 1000))
-
-    try {
-      if (videoFilePath && existsSync(videoFilePath)) {
-        await unlink(videoFilePath)
-        console.log("Cleaned up video file:", videoFilePath)
-      }
-      if (audioFilePath && existsSync(audioFilePath)) {
-        await unlink(audioFilePath)
-        console.log("Cleaned up audio file:", audioFilePath)
-      }
-    } catch (cleanupError) {
-      console.error("Error cleaning up files:", cleanupError)
-      // Try again after another delay if first attempt fails
-      try {
-        await new Promise((resolve) => setTimeout(resolve, 2000))
-        if (videoFilePath && existsSync(videoFilePath)) {
-          await unlink(videoFilePath)
-          console.log("Cleaned up video file on retry:", videoFilePath)
-        }
-        if (audioFilePath && existsSync(audioFilePath)) {
-          await unlink(audioFilePath)
-          console.log("Cleaned up audio file on retry:", audioFilePath)
-        }
-      } catch (retryError) {
-        console.error("Failed to cleanup files even on retry:", retryError)
-      }
-    }
+    console.error("Analysis error:", error);
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Analysis failed" },
+      { status: 500 }
+    );
   }
+}
+
+// Same analyzeAudioWithPython function as before
+async function analyzeAudioWithPython(audioBuffer: Buffer, contextNotes: string) {
+  return new Promise((resolve, reject) => {
+    const pythonProcess = spawn("python", [
+      path.join(process.cwd(), "python", "analyze_video.py"),
+      contextNotes || ""
+    ]);
+
+    let output = "";
+    let errorOutput = "";
+
+    pythonProcess.stdin!.write(audioBuffer);
+    pythonProcess.stdin!.end();
+
+    pythonProcess.stdout!.on("data", (data) => {
+      output += data.toString();
+    });
+
+    pythonProcess.stderr!.on("data", (data) => {
+      errorOutput += data.toString();
+    });
+
+    pythonProcess.on("close", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Python script failed: ${errorOutput}`));
+      } else {
+        try {
+          const analysis = JSON.parse(output.trim());
+          resolve(analysis);
+        } catch (e) {
+          reject(new Error(`Failed to parse analysis result: ${output}`));
+        }
+      }
+    });
+
+    pythonProcess.on("error", (error) => {
+      reject(new Error(`Python process error: ${error.message}`));
+    });
+  });
 }

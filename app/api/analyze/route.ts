@@ -1,115 +1,132 @@
-import { type NextRequest, NextResponse } from "next/server";
-import { spawn } from "child_process";
-import path from "path";
+import { type NextRequest, NextResponse } from "next/server"
+import { spawn } from "child_process"
+import path from "path"
+import { Readable } from "stream"
+import { adminStorage } from "@/lib/firebase-admin"
 
 export async function POST(request: NextRequest) {
   try {
-    const data = await request.formData();
-    const file: File | null = data.get("video") as unknown as File;
-    const contextNotes = (data.get("contextNotes") as string) || "";
+    const { videoUrl, contextNotes, fileName } = await request.json()
 
-    if (!file) {
-      return NextResponse.json({ error: "No file uploaded" }, { status: 400 });
+    if (!videoUrl) {
+      return NextResponse.json({ error: "No video URL provided" }, { status: 400 })
     }
 
-    // 🧠 Buffer the video file instead of streaming it
-    const arrayBuffer = await file.arrayBuffer();
-    const videoBuffer = Buffer.from(arrayBuffer);
+    console.log("Processing video from Firebase:", fileName)
 
-    // 🧪 Send the buffer to FFmpeg for audio extraction
+    // Extract the file path from the Firebase URL to delete it later
+    const urlParts = videoUrl.split('/o/')[1]?.split('?')[0]
+    const filePath = decodeURIComponent(urlParts || '')
+
+    // Stream the video directly from Firebase to FFmpeg for audio extraction
     const result = await new Promise((resolve, reject) => {
       const ffmpegProcess = spawn("ffmpeg", [
-        "-i", "pipe:0", // Read from stdin
-        "-vn",          // No video output
+        "-i", videoUrl, // Read directly from Firebase URL
+        "-vn", // No video output
         "-acodec", "pcm_s16le", // Audio codec
-        "-ar", "16000", // Sample rate
-        "-ac", "1",     // Mono
-        "-f", "wav",    // Output format
-        "pipe:1"        // Write to stdout
-      ]);
+        "-ar", "16000", // Sample rate optimized for speech
+        "-ac", "1", // Mono audio
+        "-f", "wav", // Output format
+        "pipe:1" // Write to stdout
+      ], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
 
-      let audioBuffer = Buffer.alloc(0);
-      let errorOutput = "";
+      let audioBuffer = Buffer.alloc(0)
+      let errorOutput = ""
 
-      // Pipe video buffer to stdin
-      ffmpegProcess.stdin!.write(videoBuffer);
-      ffmpegProcess.stdin!.end();
+      // Collect audio output
+      ffmpegProcess.stdout!.on('data', (chunk) => {
+        audioBuffer = Buffer.concat([audioBuffer, chunk])
+      })
 
-      // Capture audio output
-      ffmpegProcess.stdout!.on("data", (chunk) => {
-        audioBuffer = Buffer.concat([audioBuffer, chunk]);
-      });
+      // Collect error output
+      ffmpegProcess.stderr!.on('data', (data) => {
+        errorOutput += data.toString()
+      })
 
-      ffmpegProcess.stderr!.on("data", (data) => {
-        errorOutput += data.toString();
-      });
-
-      ffmpegProcess.on("close", async (code) => {
+      // Handle FFmpeg completion
+      ffmpegProcess.on('close', async (code) => {
         if (code !== 0) {
-          reject(new Error(`FFmpeg failed: ${errorOutput}`));
-          return;
+          reject(new Error(`FFmpeg failed: ${errorOutput}`))
+          return
         }
 
         try {
-          const pythonResult = await analyzeAudioWithPython(audioBuffer, contextNotes);
-          resolve(pythonResult);
-        } catch (err) {
-          reject(err);
+          // Now analyze the extracted audio with Python
+          const pythonResult = await analyzeAudioWithPython(audioBuffer, contextNotes || "")
+          
+          // Clean up Firebase file after successful processing
+          if (filePath) {
+            try {
+              await adminStorage.bucket().file(filePath).delete()
+              console.log(`Successfully deleted Firebase file: ${filePath}`)
+            } catch (deleteError) {
+              console.error(`Failed to delete Firebase file: ${filePath}`, deleteError)
+              // Don't fail the request if cleanup fails
+            }
+          }
+          
+          resolve(pythonResult)
+        } catch (error) {
+          reject(error)
         }
-      });
+      })
 
-      ffmpegProcess.on("error", (error) => {
-        reject(new Error(`FFmpeg process error: ${error.message}`));
-      });
-    });
+      ffmpegProcess.on('error', (error) => {
+        reject(new Error(`FFmpeg process error: ${error.message}`))
+      })
+    })
 
-    return NextResponse.json(result);
+    return NextResponse.json(result)
   } catch (error) {
-    console.error("Analysis error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Analysis failed" },
-      { status: 500 }
-    );
+    console.error("Analysis error:", error)
+    return NextResponse.json({ 
+      error: error instanceof Error ? error.message : "Analysis failed" 
+    }, { status: 500 })
   }
 }
 
-// Same analyzeAudioWithPython function as before
 async function analyzeAudioWithPython(audioBuffer: Buffer, contextNotes: string) {
   return new Promise((resolve, reject) => {
     const pythonProcess = spawn("python", [
       path.join(process.cwd(), "python", "analyze_video.py"),
       contextNotes || ""
-    ]);
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    })
 
-    let output = "";
-    let errorOutput = "";
+    let output = ""
+    let errorOutput = ""
 
-    pythonProcess.stdin!.write(audioBuffer);
-    pythonProcess.stdin!.end();
+    // Send audio data directly to Python script via stdin
+    pythonProcess.stdin!.write(audioBuffer)
+    pythonProcess.stdin!.end()
 
+    // Collect Python output
     pythonProcess.stdout!.on("data", (data) => {
-      output += data.toString();
-    });
+      output += data.toString()
+    })
 
     pythonProcess.stderr!.on("data", (data) => {
-      errorOutput += data.toString();
-    });
+      errorOutput += data.toString()
+    })
 
     pythonProcess.on("close", (code) => {
       if (code !== 0) {
-        reject(new Error(`Python script failed: ${errorOutput}`));
+        reject(new Error(`Python script failed: ${errorOutput}`))
       } else {
         try {
-          const analysis = JSON.parse(output.trim());
-          resolve(analysis);
+          const analysis = JSON.parse(output.trim())
+          resolve(analysis)
         } catch (e) {
-          reject(new Error(`Failed to parse analysis result: ${output}`));
+          reject(new Error(`Failed to parse analysis result: ${output}`))
         }
       }
-    });
+    })
 
-    pythonProcess.on("error", (error) => {
-      reject(new Error(`Python process error: ${error.message}`));
-    });
-  });
+    pythonProcess.on('error', (error) => {
+      reject(new Error(`Python process error: ${error.message}`))
+    })
+  })
 }

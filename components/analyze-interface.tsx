@@ -2,7 +2,7 @@
 
 import type React from "react";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react"; // Added useEffect
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,16 @@ export default function AnalyzeInterface() {
   const [currentStep, setCurrentStep] = useState("");
   const [firebaseUrl, setFirebaseUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const analysisProgressIntervalRef = useRef<NodeJS.Timeout | null>(null); // Ref for interval
+
+  // Cleanup interval on component unmount
+  useEffect(() => {
+    return () => {
+      if (analysisProgressIntervalRef.current) {
+        clearInterval(analysisProgressIntervalRef.current);
+      }
+    };
+  }, []);
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -146,7 +156,16 @@ export default function AnalyzeInterface() {
       const downloadURL = await uploadToFirebase(uploadedFile);
 
       setCurrentStep("Video uploaded! Starting analysis...");
-      setProgress(25);
+
+      // Start continuous analysis progress simulation
+      let currentAnalysisProgress = 0;
+      analysisProgressIntervalRef.current = setInterval(() => {
+        currentAnalysisProgress = Math.min(
+          currentAnalysisProgress + Math.random() * 5,
+          90
+        ); // Progress up to 90%
+        setProgress(currentAnalysisProgress);
+      }, 200); // Update every 200ms for a smoother, faster feel
 
       // Step 2: Send URL to backend for processing
       const response = await fetch("/api/analyze", {
@@ -161,16 +180,10 @@ export default function AnalyzeInterface() {
         }),
       });
 
-      setProgress(50);
-      setCurrentStep("Extracting audio and analyzing speech...");
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Analysis failed");
       }
-
-      setProgress(75);
-      setCurrentStep("Generating detailed feedback...");
 
       const data = await response.json();
 
@@ -178,25 +191,32 @@ export default function AnalyzeInterface() {
         throw new Error(data.error);
       }
 
+      // Clear the interval and set final progress
+      if (analysisProgressIntervalRef.current) {
+        clearInterval(analysisProgressIntervalRef.current);
+      }
       setProgress(100);
       setCurrentStep("Analysis complete!");
 
-      // Add artificial delay to show completion
-      setTimeout(() => {
-        setAnalysisResult(data);
-        setCurrentStep("");
-      }, 500);
+      // No artificial delay here, show results immediately
+      setAnalysisResult(data);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "An error occurred during analysis"
       );
       setCurrentStep("");
+      if (analysisProgressIntervalRef.current) {
+        clearInterval(analysisProgressIntervalRef.current);
+      }
+      setProgress(0); // Reset progress on error
     } finally {
+      // Shorten the final cleanup delay
       setTimeout(() => {
         setIsAnalyzing(false);
         setProgress(0);
         setUploadProgress(0);
-      }, 1000);
+        setCurrentStep(""); // Clear step message
+      }, 500); // Reduced from 1000ms
     }
   };
 
@@ -233,7 +253,6 @@ export default function AnalyzeInterface() {
             Upload your presentation video and get detailed AI-powered feedback
             on your speaking performance.
           </p>
-          {/* Removed the Cloud-Optimized banner */}
         </div>
 
         <div className="grid lg:grid-cols-2 gap-12">
@@ -306,7 +325,7 @@ export default function AnalyzeInterface() {
                         <p className="text-white font-medium mb-2">
                           Drop your video here, or click to browse
                         </p>
-                        <p className="text-slate-400 text-sm">
+                        <p className="text-400 text-sm">
                           Supports MP4, MOV, AVI • Uploaded to secure cloud
                           storage
                         </p>
